@@ -440,6 +440,12 @@ class JobViewSet(ReadAndDeleteOnlyViewSet, SerializerActionMixin):
     )
     @cache_action_response(timeout=60 * 5)
     def aggregate_file_mimetype(self, request):
+        annotations = {
+            oc.lower(): Count(
+                "observable_classification", filter=Q(observable_classification=oc)
+            )
+            for oc in ObservableTypes.values
+        }
         return self.__aggregation_response_dynamic("file_mimetype")
 
     @action(
