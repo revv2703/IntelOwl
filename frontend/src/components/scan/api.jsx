@@ -11,10 +11,7 @@ import {
   PLAYBOOKS_ANALYZE_MULTIPLE_FILES_URI,
   PLAYBOOKS_ANALYZE_MULTIPLE_OBSERVABLE_URI,
 } from "../../constants/api";
-import useRecentScansStore from "../../stores/useRecentScansStore";
 import { scanMode } from "../../constants/constants";
-
-const { append: appendToRecentScans } = useRecentScansStore.getState();
 
 function prettifyErrors(errorResponse) {
   // only validation errors returns an array of errors
@@ -45,33 +42,30 @@ function prettifyErrors(errorResponse) {
 }
 
 export async function createPlaybookJob(formValues) {
-  // new scan
-  const resp =
-    formValues.classification === "file"
-      ? await _startPlaybookFile(formValues)
-      : await _startPlaybookObservable(formValues);
-
-  const playbooksRunning = new Set();
-  const warnings = [];
-  const respData = resp.data.results;
-
-  respData.forEach((x) => {
-    if (x.playbook_running) playbooksRunning.add(x.playbook_running);
-    if (x.warnings) warnings.push(...x.warnings);
-  });
-
   try {
+    // new scan
+    const resp =
+      formValues.classification === "file"
+        ? await _startPlaybookFile(formValues)
+        : await _startPlaybookObservable(formValues);
+
+    const playbooksRunning = new Set();
+    const warnings = [];
+    const respData = resp.data.results;
+
+    respData.forEach((x) => {
+      if (x.playbook_running) playbooksRunning.add(x.playbook_running);
+      if (x.warnings) warnings.push(...x.warnings);
+    });
+
     // handle response/error
     if (
       respData.every(
         (element) =>
-          element.status === "accepted" || element.status === "running",
+          element.status === "accepted" || element.status === "exists",
       )
     ) {
       const jobIds = respData.map((x) => parseInt(x.job_id, 10));
-      jobIds.forEach((jobId) => {
-        appendToRecentScans(jobId, "success");
-      });
       addToast(
         `Created new Job with ID(s) #${jobIds.join(", ")}!`,
         <div>
@@ -153,13 +147,10 @@ export async function createJob(formValues) {
     if (
       respData.every(
         (element) =>
-          element.status === "accepted" || element.status === "running",
+          element.status === "accepted" || element.status === "exists",
       )
     ) {
       const jobIds = respData.map((x) => parseInt(x.job_id, 10));
-      jobIds.forEach((jobId) => {
-        appendToRecentScans(jobId, "success");
-      });
       addToast(
         `Created new Job with ID(s) #${jobIds.join(", ")}!`,
         <div>
@@ -204,17 +195,31 @@ async function _analyzeObservable(formValues) {
   });
   const body = {
     observables,
-    analyzers_requested: formValues.analyzers,
-    connectors_requested: formValues.connectors,
     tlp: formValues.tlp,
-    runtime_configuration: formValues.runtime_configuration,
-    tags_labels: formValues.tags_labels,
     scan_mode: parseInt(formValues.scan_mode, 10),
   };
+  // analyzers
+  if (formValues.analyzers.length) {
+    body.analyzers_requested = formValues.analyzers;
+  }
+  // connectors
+  if (formValues.connectors.length) {
+    body.connectors_requested = formValues.connectors;
+  }
+  // tags
+  if (formValues.tags_labels.length) {
+    body.tags_labels = formValues.tags_labels;
+  }
+  // runtime configuration
+  if (
+    formValues.runtime_configuration != null &&
+    Object.keys(formValues.runtime_configuration).length
+  ) {
+    body.runtime_configuration = formValues.runtime_configuration;
+  }
+  // scan mode
   if (formValues.scan_mode === scanMode.CHECK_PREVIOUS_ANALYSIS) {
-    body.scan_check_time = `${formValues.hoursAgo}:00:00`;
-  } else {
-    body.scan_check_time = null;
+    body.scan_check_time = `${formValues.scan_check_time}:00:00`;
   }
   return axios.post(ANALYZE_MULTIPLE_OBSERVABLE_URI, body);
 }
@@ -257,7 +262,7 @@ async function _analyzeFile(formValues) {
   body.append("scan_mode", formValues.scan_mode);
   // scan check time
   if (formValues.scan_mode === scanMode.CHECK_PREVIOUS_ANALYSIS) {
-    body.append("scan_check_time", `${formValues.hoursAgo}:00:00`);
+    body.append("scan_check_time", `${formValues.scan_check_time}:00:00`);
   }
   console.debug("_analyzeFile", body);
   return axios.post(ANALYZE_MULTIPLE_FILES_URI, body);
@@ -281,7 +286,7 @@ async function _startPlaybookFile(formValues) {
   body.append("scan_mode", formValues.scan_mode);
   // scan check time
   if (formValues.scan_mode === scanMode.CHECK_PREVIOUS_ANALYSIS) {
-    body.append("scan_check_time", `${formValues.hoursAgo}:00:00`);
+    body.append("scan_check_time", `${formValues.scan_check_time}:00:00`);
   }
   console.debug("_analyzeFile", body);
   return axios.post(PLAYBOOKS_ANALYZE_MULTIPLE_FILES_URI, body);
@@ -296,14 +301,14 @@ async function _startPlaybookObservable(formValues) {
   const body = {
     observables,
     playbook_requested: formValues.playbook,
-    tags_labels: formValues.tags_labels,
     tlp: formValues.tlp,
     scan_mode: parseInt(formValues.scan_mode, 10),
   };
+  if (formValues.tags_labels.length) {
+    body.tags_labels = formValues.tags_labels;
+  }
   if (formValues.scan_mode === scanMode.CHECK_PREVIOUS_ANALYSIS) {
-    body.scan_check_time = `${formValues.hoursAgo}:00:00`;
-  } else {
-    body.scan_check_time = null;
+    body.scan_check_time = `${formValues.scan_check_time}:00:00`;
   }
   console.debug("_analyzeObservable", body);
   return axios.post(PLAYBOOKS_ANALYZE_MULTIPLE_OBSERVABLE_URI, body);

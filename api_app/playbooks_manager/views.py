@@ -21,9 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybookConfigViewSet(AbstractConfigViewSet, mixins.CreateModelMixin):
-
     serializer_class = PlaybookConfigSerializer
-
+    ordering = ["-weight", "name"]
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
