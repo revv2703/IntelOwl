@@ -40,3 +40,4 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+frontend/node_modules

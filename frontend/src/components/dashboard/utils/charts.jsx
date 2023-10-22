@@ -94,7 +94,7 @@ export const JobFileMimetypeBarChart = React.memo(() => {
   const chartProps = React.useMemo(
     () => ({
       url: JOB_AGG_FILE_MIMETYPE_URI,
-      accessorFnAggregation: (d) => d?.aggregation,
+      accessorFnAggregation: (d) => d,
       componentsFn: (respData) => {
         const { values: mtList } = respData;
         if (!mtList || !mtList?.length) return null;
